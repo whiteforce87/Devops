@@ -1,15 +1,15 @@
 provider "aws" {
-  region = "us-east-1"
+  region = "eu-west-1"
 }
 
 resource "aws_instance" "project-server" {
-    ami           = "ami-04b70fa74e45c3917"
+    ami           = "ami-0776c814353b4814d"
     instance_type = "t2.micro"
     key_name      = "keyPair"
     //security_groups = [ "project-sg" ]
     vpc_security_group_ids = [aws_security_group.project-sg.id]
     subnet_id = aws_subnet.fth-public-subnet-01.id 
-    //this is for create EC2 instance for each, for multiple EC2 creation
+    //this is for create EC2 instance for each below, for multiple EC2 creation
     for_each = toset(["jenkins-master", "build-slave", "ansible"])
    tags = {
      Name = "${each.key}"
@@ -26,6 +26,14 @@ resource "aws_security_group" "project-sg" {
     description      = "Shh access"
     from_port        = 22
     to_port          = 22
+    protocol         = "tcp"
+    cidr_blocks      = ["0.0.0.0/0"]
+    }
+
+    ingress {
+    description      = "Jenkins port"
+    from_port        = 8080
+    to_port          = 8080
     protocol         = "tcp"
     cidr_blocks      = ["0.0.0.0/0"]
     }
@@ -56,7 +64,7 @@ resource "aws_subnet" "fth-public-subnet-01" {
   vpc_id = aws_vpc.fth-vpc.id
   cidr_block = "10.1.1.0/24"
   map_public_ip_on_launch = "true"
-  availability_zone = "us-east-1a"
+  availability_zone = "eu-west-1a"
   tags = {
     Name = "fth-public-subent-01"
   }
@@ -66,16 +74,16 @@ resource "aws_subnet" "fth-public-subnet-02" {
   vpc_id = aws_vpc.fth-vpc.id
   cidr_block = "10.1.2.0/24"
   map_public_ip_on_launch = "true"
-  availability_zone = "us-east-1b"
+  availability_zone = "eu-west-1b"
   tags = {
     Name = "fth-public-subent-02"
   }
 }
 
-resource "aws_internet_gateway" "fth-igw" {
+resource "aws_internet_gateway" "fth-gw" {
   vpc_id = aws_vpc.fth-vpc.id 
   tags = {
-    Name = "fth-igw"
+    Name = "fth-gw"
   } 
 }
 
@@ -83,7 +91,7 @@ resource "aws_route_table" "fth-public-rt" {
   vpc_id = aws_vpc.fth-vpc.id 
   route {
     cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.fth-igw.id 
+    gateway_id = aws_internet_gateway.fth-gw.id 
   }
 }
 
