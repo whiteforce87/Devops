@@ -1,0 +1,135 @@
+def registry = 'https://whiteforce87.jfrog.io'
+def imageName = 'whiteforce87.jfrog.io/todoapp-docker-local/todoapp'
+def version   = '0.0.1'
+pipeline {
+    agent {
+        node{
+             label 'maven'
+        }
+    }
+	environment{
+		PATH = "/opt/apache-maven-3.9.6/bin:$PATH"
+    }
+    stages {
+        stage('build') {
+            steps {
+                echo "--------build started-------"
+                sh 'mvn clean deploy -Dmaven.test.skip=true'
+                echo "--------build ended-------"
+            }
+        }
+        /*
+        stage("test"){
+            steps{
+                echo "--------unit test started-------"
+                sh 'mvn surefire-report:report'
+                echo "--------unit test completed-------"
+            }
+        }
+        */
+        /*
+         stage('SonarQube analysis') {
+            environment {
+              scannerHome = tool 'whiteforce-sonar-scanner'
+            }
+            steps{
+                script{
+                    def projectVersion = "${env.BUILD_NUMBER}"
+                    withSonarQubeEnv('whiteforce-sonarqube-server') { // If you have configured more than one global server connection, you can specify its name
+                        sh "${scannerHome}/bin/sonar-scanner -Dsonar.projectVersion=${projectVersion}"
+                    }
+                }
+            }
+         }
+         stage("Quality Gate"){
+            steps {
+                script {
+                    timeout(time: 5, unit: 'MINUTES') { // Just in case something goes wrong, pipeline will be killed after a timeout
+                        def qg = waitForQualityGate() // Reuse taskId previously collected by withSonarQubeEnv
+                        if (qg.status != 'OK') {
+                            error "Pipeline aborted due to quality gate failure: ${qg.status}"
+                        }
+                    }
+                }
+            }
+         }
+         */
+         stage("Jar Publish") {
+            steps {
+                script {
+                    echo '<--------------- Jar Publish Started --------------->'
+                    def server = Artifactory.newServer url:registry+"/artifactory" ,  credentialsId:"jfrog_artifactory_credentials"
+                    def properties = "buildid=${env.BUILD_ID},commitid=${GIT_COMMIT}";
+                    def uploadSpec =  """{
+                        "files": [
+                            {
+                                "pattern": "jarstaging/(*)",
+                                "target": "whiteforce-libs-release-local/{1}",
+                                "flat": "false",
+                                "props" : "${properties}",
+                                "exclusions": [ "*.sha1", "*.md5"]
+                            }
+                            ]
+                    }"""
+                    echo "Upload Spec: ${uploadSpec}"
+                    // Attempt to upload artifacts to Artifactory
+                    try {
+                        def buildInfo = server.upload spec: uploadSpec
+                        echo "Artifacts uploaded successfully"
+                        buildInfo.env.collect()
+                        server.publishBuildInfo buildInfo
+                        echo '<--------------- Jar Publish Ended --------------->'
+                    } catch (Exception e) {
+                        echo "Failed to upload artifacts: ${e.message}"
+                        throw e
+                    }
+
+                }
+            }
+         }
+         stage(" Docker Build ") {
+            steps {
+                script {
+                    echo '<--------------- Docker Build Started --------------->'
+                    app = docker.build(imageName+":"+version)
+                    echo '<--------------- Docker Build Ends --------------->'
+                }
+            }
+         }
+
+         stage (" Docker Publish "){
+            steps {
+                script {
+                    echo '<--------------- Docker Publish Started --------------->'
+                    docker.withRegistry(registry, 'jfrog_artifactory_credentials'){
+                        app.push()
+                    }
+                    echo '<--------------- Docker Publish Ended --------------->'
+                }
+            }
+         }
+         /*Not using Helm, using deploy.sh file and manifest files
+         stage("Deploy"){
+            steps{
+                script{
+                    sh './deploy.sh'
+                }
+            }
+         }
+         */
+         stage('Package Helm Chart for Backend') {
+             steps {
+                echo 'Packaging Helm chart for backend...'
+                sh 'helm package todoapp'
+             }
+          }
+         stage('Deploy Backend with Helm') {
+            steps {
+                echo 'Deploying backend with Helm...'
+                sh "helm install todoapp todoapp-0.1.0.tgz"
+                //sh "helm upgrade todoapp todoapp-0.1.0.tgz"
+
+            }
+         }
+    }
+}

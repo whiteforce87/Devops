@@ -1,0 +1,19 @@
+replicaCount: 1
+image:
+  repository: "whiteforce87.jfrog.io/frontend-docker-local/frontend"
+  tag: "0.1.0"
+  pullPolicy: Always
+service:
+  type: ClusterIP
+  port: 80
+ingress:
+  enabled: false
+  annotations: {}
+  hosts:
+    - host: frontend.local
+      paths: ["/"]
+  tls: []
+resources: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}

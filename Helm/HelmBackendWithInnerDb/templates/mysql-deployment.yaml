@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: todoapp-mysql-deployment
+  namespace: todoapp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+          - name: todoapp-mysql-container
+            image: mysql:5.7
+            env:
+              - name: MYSQL_ROOT_PASSWORD
+                valueFrom:
+                  secretKeyRef:
+                    name: todoapp-mysql-root-password
+                    key: password
+              - name: MYSQL_DATABASE
+                valueFrom:
+                  secretKeyRef:
+                    name: todoapp-mysql-database
+                    key: database
+              - name: MYSQL_USER
+                valueFrom:
+                  secretKeyRef:
+                    name: todoapp-mysql-username
+                    key: username
+              - name: MYSQL_PASSWORD
+                valueFrom:
+                  secretKeyRef:
+                    name: todoapp-mysql-password
+                    key: password
+            ports:
+              - containerPort: 3306
+            volumeMounts:
+              - name: todoapp-mysql-persistent-storage
+                mountPath: {{ .Values.mysqlVolume.mountPath }}
+              - name: todoapp-mysql-init-script
+                mountPath: /docker-entrypoint-initdb.d
+                readOnly: true
+      volumes:
+        - name: todoapp-mysql-persistent-storage
+          persistentVolumeClaim:
+            claimName: todoapp-mysql-pvc
+        - name: todoapp-mysql-init-script
+          configMap:
+              name: mysql-initdb-script

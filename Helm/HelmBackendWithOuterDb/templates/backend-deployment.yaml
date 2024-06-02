@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: todoapp-rtp
+  namespace: todoapp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app:  todoapp-rtp
+  template:
+    metadata:
+      labels:
+        app:  todoapp-rtp
+    spec:
+      imagePullSecrets:
+      - name: jfrogcred
+      containers:
+      - name:  todoapp-rtp
+        image: whiteforce87.jfrog.io/todoapp-docker/todoapp:0.0.1
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8081
+        env:
+        - name: SPRING_DATASOURCE_URL
+          value: jdbc:mysql://mysql-service:3306/new_schema123?createDatabaseIfNotExist=true&characterEncoding=UTF-8&useUnicode=true&useSSL=false&allowPublicKeyRetrieval=true
+        #  - name: SPRING_DATASOURCE_URL
+        #    value: jdbc:mysql://whiteforcedb.cvegim666ohq.eu-west-1.rds.amazonaws.com:3306/new_schema123?createDatabaseIfNotExist=true&characterEncoding=UTF-8&useUnicode=true&useSSL=false&allowPublicKeyRetrieval=true
+        - name: MYSQL_DATABASE
+          valueFrom:
+            secretKeyRef:
+                name: todoapp-mysql-database
+                key: database
+        - name: SPRING_DATASOURCE_USERNAME
+          valueFrom:
+            secretKeyRef:
+                name: todoapp-mysql-username
+                key: username
+        - name: SPRING_DATASOURCE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+                name: todoapp-mysql-password
+                key: password
+        - name: SPRING_DATASOURCE_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+                name: todoapp-mysql-root-password
+                key: password
+        - name: SPRING_DATASOURCE_DRIVER_CLASS_NAME
+          value: com.mysql.cj.jdbc.Driver

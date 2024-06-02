@@ -4,16 +4,41 @@ provider "aws" {
 
 resource "aws_instance" "project-server" {
     ami           = "ami-0776c814353b4814d"
-    instance_type = "t2.micro"
+    instance_type = each.value.instance_type
     key_name      = "keyPair"
     //security_groups = [ "project-sg" ]
     vpc_security_group_ids = [aws_security_group.project-sg.id]
     subnet_id = aws_subnet.fth-public-subnet-01.id 
     //this is for create EC2 instance for each below, for multiple EC2 creation
-    for_each = toset(["jenkins-master", "build-slave", "ansible"])
+    //for_each = toset(["jenkins-master", "build-slave", "ansible"])
+
+    # Using for_each to create instances with different configurations
+    for_each = {
+      "jenkins-master" = { volume_size = 8, instance_type = "t2.micro" }
+      "build-slave"    = { volume_size = 14, instance_type = "t2.small", ami="ami-0776c814353b4814d" }
+      "ansible"        = { volume_size = 8, instance_type = "t2.micro" }
+    }
+    
+    root_block_device {
+        volume_size = each.value.volume_size
+        volume_type = "gp2"
+    }
+
+
+    # If swap volume is needed for over RAM load use this, but it uses harddisk space
+    //ebs_block_device {
+    //    device_name = "/dev/xvdf"  # Swap alanı için bir cihaz adı belirtin
+    //    volume_size = 10  # Swap alanı boyutunu belirtin
+    //    volume_type = "gp2"  # Swap alanı için uygun bir depolama türü belirtin
+    //}
+
    tags = {
      Name = "${each.key}"
    }
+   user_data = <<-EOF
+              #!/bin/bash
+              sudo chmod 777 /var/run/docker.sock
+            EOF
 
 }
 
@@ -38,7 +63,16 @@ resource "aws_security_group" "project-sg" {
     cidr_blocks      = ["0.0.0.0/0"]
     }
 
-  egress {
+    ingress {
+    description      = "Mysql port"
+    from_port        = 3306
+    to_port          = 3306
+    protocol         = "tcp"
+    cidr_blocks      = ["0.0.0.0/0"]
+    }
+
+
+    egress {
     from_port        = 0
     to_port          = 0
     protocol         = "-1"
@@ -53,11 +87,13 @@ resource "aws_security_group" "project-sg" {
 }
 
 resource "aws_vpc" "fth-vpc" {
-  cidr_block = "10.1.0.0/16"
+  cidr_block           = "10.1.0.0/16"
+  enable_dns_support   = true
+  enable_dns_hostnames = true
+  
   tags = {
     Name = "fth-vpc"
   }
-  
 }
 
 resource "aws_subnet" "fth-public-subnet-01" {
@@ -104,6 +140,21 @@ resource "aws_route_table_association" "fth-rta-public-subnet-02" {
   subnet_id = aws_subnet.fth-public-subnet-02.id 
   route_table_id = aws_route_table.fth-public-rt.id   
 }
+
+/*
+//Below part is related kubernetes - eks 
+module "sgs" {
+    source = "../sg_eks"
+    vpc_id  =  aws_vpc.fth-vpc.id
+}
+
+module "eks" {
+   source = "../eks"
+   vpc_id  =  aws_vpc.fth-vpc.id
+   subnet_ids = [aws_subnet.fth-public-subnet-01.id,aws_subnet.fth-public-subnet-02.id]
+   sg_ids = module.sgs.security_group_public
+}
+*/
 
 //Commands:
 //terraform init

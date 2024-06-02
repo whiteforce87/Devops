@@ -118,7 +118,7 @@ resource "aws_iam_instance_profile" "worker" {
 
 ###############################################################################################################
 resource "aws_eks_cluster" "eks" {
-  name = "ed-eks-01"
+  name = "whiteforce-eks-01"
   role_arn = aws_iam_role.master.arn
 
   vpc_config {
@@ -169,4 +169,56 @@ resource "aws_eks_node_group" "backend" {
     #aws_subnet.pub_sub1,
     #aws_subnet.pub_sub2,
   ]
+}
+
+###############################################################################################################
+# MySQL için IAM rol ve politikaları
+###############################################################################################################
+
+resource "aws_iam_role" "mysql_role" {
+  name = "mysql-role"
+
+  assume_role_policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "eks.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+EOF
+}
+
+resource "aws_iam_policy" "mysql_policy" {
+  name   = "mysql-policy"
+  policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ec2:Describe*",
+        "ec2:AttachVolume",
+        "ec2:CreateVolume",
+        "ec2:DeleteVolume",
+        "ec2:DetachVolume",
+        "ec2:CreateTags",
+        "ec2:DeleteTags"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+EOF
+}
+
+resource "aws_iam_role_policy_attachment" "mysql_policy_attachment" {
+  policy_arn = aws_iam_policy.mysql_policy.arn
+  role       = aws_iam_role.mysql_role.name
 }

@@ -1,0 +1,3 @@
+FROM openjdk:17
+ADD jarstaging/com/in28minutes/rest/webservices/restful-web-services/0.0.1/restful-web-services-0.0.1.jar todoApp.jar
+ENTRYPOINT ["java", "-jar", "todoApp.jar"]

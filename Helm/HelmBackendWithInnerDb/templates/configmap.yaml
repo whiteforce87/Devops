@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-initdb-script
+  namespace: todoapp
+data:
+  init-script.sql: |-
+    CREATE DATABASE IF NOT EXISTS new_schema123;
+    ALTER USER 'root'@'%' IDENTIFIED BY '123456Fat.';
+    GRANT ALL PRIVILEGES ON new_schema123.* TO 'root'@'%';
